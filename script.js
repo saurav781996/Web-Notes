@@ -4,8 +4,9 @@ class NoteManager {
         this.notes = [];
         this.currentNoteId = null; // Track which note is currently open
         this.arrowsVisible = false; // Track if arrow controls are visible
-        this.encryptionKey = null; // Store the current encryption key
-        this.isEncrypted = false; // Track if data is encrypted
+        this.encryptionKey = "saurav"; // Default encryption key
+        this.isEncrypted = true; // Enable encryption by default
+        this.showMoreActions = false; // Track if more actions are shown
         this.loadNotes();
         this.initializeEventListeners();
         this.renderNotes();
@@ -16,6 +17,11 @@ class NoteManager {
         
         // Check if encryption is required on startup
         this.checkEncryptionStatus();
+
+        // Variables to store last deleted note and its index, and snackbar timer
+        this.lastDeletedNote = null;
+        this.lastDeletedNoteIndex = null;
+        this.snackbarTimer = null;
     }
 
     // Initialize mobile-specific features
@@ -32,9 +38,6 @@ class NoteManager {
 
         // Handle mobile keyboard events
         this.handleMobileKeyboard();
-        
-        // Add swipe gestures for note deletion
-        this.initializeSwipeGestures();
         
         // Optimize for mobile performance
         this.optimizeForMobile();
@@ -75,72 +78,6 @@ class NoteManager {
         });
     }
 
-    // Initialize swipe gestures for note deletion
-    initializeSwipeGestures() {
-        let startX = 0;
-        let startY = 0;
-        let currentX = 0;
-        let currentY = 0;
-        let isSwiping = false;
-        let swipedElement = null;
-        let hasMoved = false;
-
-        document.addEventListener('touchstart', (e) => {
-            const noteItem = e.target.closest('.note-item');
-            if (noteItem) {
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
-                isSwiping = true;
-                hasMoved = false;
-                swipedElement = noteItem;
-            }
-        });
-
-        document.addEventListener('touchmove', (e) => {
-            if (!isSwiping) return;
-            
-            currentX = e.touches[0].clientX;
-            currentY = e.touches[0].clientY;
-            
-            const diffX = startX - currentX;
-            const diffY = startY - currentY;
-            
-            // Check if finger has moved significantly
-            if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
-                hasMoved = true;
-            }
-            
-            // Only allow horizontal swipes
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
-                e.preventDefault();
-                const translateX = Math.max(-100, -diffX);
-                swipedElement.style.transform = `translateX(${translateX}px)`;
-                swipedElement.style.transition = 'none';
-            }
-        });
-
-        document.addEventListener('touchend', (e) => {
-            if (!isSwiping) return;
-            
-            const diffX = startX - currentX;
-            
-            // Only delete if it was a proper swipe (moved significantly and swiped left)
-            if (hasMoved && diffX > 100) {
-                // Swipe left - delete note
-                const noteId = parseInt(swipedElement.dataset.id);
-                this.deleteNote(noteId);
-            }
-            
-            // Reset position
-            swipedElement.style.transform = '';
-            swipedElement.style.transition = 'transform 0.3s ease';
-            
-            isSwiping = false;
-            hasMoved = false;
-            swipedElement = null;
-        });
-    }
-
     // Optimize for mobile performance
     optimizeForMobile() {
         // Debounce search for better mobile performance
@@ -162,47 +99,78 @@ class NoteManager {
     // Initialize modal event listeners
     initializeModalEvents() {
         // Close main modal
-        document.getElementById('closeModal').addEventListener('click', () => {
-            this.closeNoteModal();
-        });
+        const closeModal = document.getElementById('closeModal');
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                this.closeNoteModal();
+            });
+        }
 
         // Close sub-note modal
-        document.getElementById('closeSubNoteModal').addEventListener('click', () => {
-            this.closeSubNoteModal();
-        });
+        const closeSubNoteModal = document.getElementById('closeSubNoteModal');
+        if (closeSubNoteModal) {
+            closeSubNoteModal.addEventListener('click', () => {
+                this.closeSubNoteModal();
+            });
+        }
 
         // Add sub-note button
-        document.getElementById('addSubNoteBtn').addEventListener('click', () => {
-            this.showSubNoteModal();
-        });
+        const addSubNoteBtn = document.getElementById('addSubNoteBtn');
+        if (addSubNoteBtn) {
+            addSubNoteBtn.addEventListener('click', () => {
+                this.showSubNoteModal();
+            });
+        }
 
         // Toggle arrows button
-        document.getElementById('toggleArrowsBtn').addEventListener('click', () => {
-            this.toggleArrowControls();
-        });
+        const toggleArrowsBtn = document.getElementById('toggleArrowsBtn');
+        if (toggleArrowsBtn) {
+            toggleArrowsBtn.addEventListener('click', () => {
+                this.toggleArrowControls();
+            });
+        }
 
         // Save sub-note button
-        document.getElementById('saveSubNoteBtn').addEventListener('click', () => {
-            this.saveSubNote();
-        });
+        const saveSubNoteBtn = document.getElementById('saveSubNoteBtn');
+        if (saveSubNoteBtn) {
+            saveSubNoteBtn.addEventListener('click', () => {
+                this.saveSubNote();
+            });
+        }
 
         // Cancel sub-note button
-        document.getElementById('cancelSubNoteBtn').addEventListener('click', () => {
-            this.closeSubNoteModal();
-        });
+        const cancelSubNoteBtn = document.getElementById('cancelSubNoteBtn');
+        if (cancelSubNoteBtn) {
+            cancelSubNoteBtn.addEventListener('click', () => {
+                this.closeSubNoteModal();
+            });
+        }
 
         // Close modals when clicking outside
-        document.getElementById('noteModal').addEventListener('click', (e) => {
-            if (e.target.id === 'noteModal') {
-                this.closeNoteModal();
+        const noteModal = document.getElementById('noteModal');
+        if (noteModal) {
+            noteModal.addEventListener('click', (e) => {
+                if (e.target.id === 'noteModal') {
+                    this.closeNoteModal();
+                }
+            });
+            // Prevent modal from closing when clicking inside modal-content
+            const modalContent = noteModal.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
             }
-        });
+        }
 
-        document.getElementById('subNoteModal').addEventListener('click', (e) => {
-            if (e.target.id === 'subNoteModal') {
-                this.closeSubNoteModal();
-            }
-        });
+        const subNoteModal = document.getElementById('subNoteModal');
+        if (subNoteModal) {
+            subNoteModal.addEventListener('click', (e) => {
+                if (e.target.id === 'subNoteModal') {
+                    this.closeSubNoteModal();
+                }
+            });
+        }
 
         // Set up sub-notes event listener
         this.setupSubNotesEventListeners();
@@ -210,70 +178,107 @@ class NoteManager {
         // Escape key to close modals
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                if (document.getElementById('subNoteModal').classList.contains('show')) {
+                if (document.getElementById('subNoteModal')?.classList.contains('show')) {
                     this.closeSubNoteModal();
-                } else if (document.getElementById('noteModal').classList.contains('show')) {
+                } else if (document.getElementById('noteModal')?.classList.contains('show')) {
                     this.closeNoteModal();
                 }
             }
         });
+
+        // More button for sub-notes
+        const moreSubNoteBtn = document.getElementById('moreSubNoteBtn');
+        if (moreSubNoteBtn) {
+            moreSubNoteBtn.addEventListener('click', () => {
+                this.showMoreActions = !this.showMoreActions;
+                this.renderSubNotes();
+                // Update button text
+                moreSubNoteBtn.textContent = this.showMoreActions ? 'Hide More' : '⋯ More';
+            });
+        }
     }
 
     // Initialize encryption event listeners
     initializeEncryptionEvents() {
-        // Key button click
-        document.getElementById('keyBtn').addEventListener('click', () => {
-            this.showKeyModal();
-        });
+        // Key button click - commented out since button is hidden
+        // document.getElementById('keyBtn').addEventListener('click', () => {
+        //     this.showKeyModal();
+        // });
 
         // Close key modal
-        document.getElementById('closeKeyModal').addEventListener('click', () => {
-            this.closeKeyModal();
-        });
+        const closeKeyModal = document.getElementById('closeKeyModal');
+        if (closeKeyModal) {
+            closeKeyModal.addEventListener('click', () => {
+                this.closeKeyModal();
+            });
+        }
 
         // Set key button
-        document.getElementById('setKeyBtn').addEventListener('click', () => {
-            this.setEncryptionKey();
-        });
+        const setKeyBtn = document.getElementById('setKeyBtn');
+        if (setKeyBtn) {
+            setKeyBtn.addEventListener('click', () => {
+                this.setEncryptionKey();
+            });
+        }
 
         // Enter key button
-        document.getElementById('enterKeyBtn').addEventListener('click', () => {
-            this.enterEncryptionKey();
-        });
+        const enterKeyBtn = document.getElementById('enterKeyBtn');
+        if (enterKeyBtn) {
+            enterKeyBtn.addEventListener('click', () => {
+                this.enterEncryptionKey();
+            });
+        }
 
         // Clear all data button
-        document.getElementById('clearKeyBtn').addEventListener('click', () => {
-            this.clearAllData();
-        });
+        const clearKeyBtn = document.getElementById('clearKeyBtn');
+        if (clearKeyBtn) {
+            clearKeyBtn.addEventListener('click', () => {
+                this.clearAllData();
+            });
+        }
 
         // Disable encryption button
-        document.getElementById('disableEncryptionBtn').addEventListener('click', () => {
-            this.disableEncryption();
-        });
+        const disableEncryptionBtn = document.getElementById('disableEncryptionBtn');
+        if (disableEncryptionBtn) {
+            disableEncryptionBtn.addEventListener('click', () => {
+                this.disableEncryption();
+            });
+        }
 
         // Show/hide key checkbox
-        document.getElementById('showKey').addEventListener('change', (e) => {
-            const keyInput = document.getElementById('encryptionKey');
-            keyInput.type = e.target.checked ? 'text' : 'password';
-        });
+        const showKey = document.getElementById('showKey');
+        if (showKey) {
+            showKey.addEventListener('change', (e) => {
+                const keyInput = document.getElementById('encryptionKey');
+                if (keyInput) {
+                    keyInput.type = e.target.checked ? 'text' : 'password';
+                }
+            });
+        }
 
         // Close key modal when clicking outside
-        document.getElementById('keyModal').addEventListener('click', (e) => {
-            if (e.target.id === 'keyModal') {
-                this.closeKeyModal();
-            }
-        });
+        const keyModal = document.getElementById('keyModal');
+        if (keyModal) {
+            keyModal.addEventListener('click', (e) => {
+                if (e.target.id === 'keyModal') {
+                    this.closeKeyModal();
+                }
+            });
+        }
 
         // Handle Enter key in encryption input
-        document.getElementById('encryptionKey').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                if (this.isEncrypted) {
-                    this.enterEncryptionKey();
-                } else {
-                    this.setEncryptionKey();
+        const encryptionKey = document.getElementById('encryptionKey');
+        if (encryptionKey) {
+            encryptionKey.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    if (this.isEncrypted) {
+                        this.enterEncryptionKey();
+                    } else {
+                        this.setEncryptionKey();
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     // Set up event listeners for sub-notes (called only once)
@@ -299,6 +304,15 @@ class NoteManager {
                 const index = Array.from(subNoteItem.parentNode.children).indexOf(subNoteItem);
                 if (index > 0) {
                     this.reorderSubNotes(index, index - 1);
+                }
+                return;
+            }
+            
+            if (target.classList.contains('down-arrow')) {
+                const index = Array.from(subNoteItem.parentNode.children).indexOf(subNoteItem);
+                const totalSubNotes = this.notes.find(n => n.id === this.currentNoteId)?.subNotes.length || 0;
+                if (index < totalSubNotes - 1) {
+                    this.reorderSubNotes(index, index + 1);
                 }
                 return;
             }
@@ -351,13 +365,30 @@ class NoteManager {
                             this.showKeyModal();
                         }, 500);
                     }
+                } else {
+                    // If no encryption was previously set, enable default encryption
+                    this.isEncrypted = true;
+                    this.encryptionKey = "saurav";
+                    this.updateKeyButton();
+                    
+                    // Encrypt existing notes with default key
+                    this.encryptAllNotes();
+                    this.saveNotes();
                 }
             } else {
                 this.notes = [];
+                // For new installations, encryption is enabled by default
+                this.isEncrypted = true;
+                this.encryptionKey = "saurav";
+                this.updateKeyButton();
             }
         } catch (error) {
             console.error('Error loading notes:', error);
             this.notes = [];
+            // Ensure encryption is enabled even on error
+            this.isEncrypted = true;
+            this.encryptionKey = "saurav";
+            this.updateKeyButton();
         }
     }
 
@@ -385,14 +416,6 @@ class NoteManager {
     // Add a new note
     addNote(title, content) {
         if (!content.trim()) {
-            this.showToast('Please enter some content for your note', 'error');
-            return false;
-        }
-
-        // Check if encryption is required but not set
-        if (this.isEncrypted && !this.encryptionKey) {
-            this.showToast('🔐 Please set an encryption key first', 'error');
-            this.showKeyModal();
             return false;
         }
 
@@ -409,20 +432,12 @@ class NoteManager {
         this.saveNotes();
         this.renderNotes();
         this.updateStats();
-        this.showToast('Note saved successfully!', 'success');
         return true;
     }
 
     // Add a sub-note to the current note
     addSubNote(title, content) {
         if (!content.trim()) {
-            return false;
-        }
-
-        // Check if encryption is required but not set
-        if (this.isEncrypted && !this.encryptionKey) {
-            this.showToast('🔐 Please set an encryption key first', 'error');
-            this.showKeyModal();
             return false;
         }
 
@@ -446,11 +461,29 @@ class NoteManager {
 
     // Delete a note
     deleteNote(id) {
-        this.notes = this.notes.filter(note => note.id !== id);
+        // Find the note and its index
+        const index = this.notes.findIndex(note => note.id === id);
+        if (index === -1) return;
+        const deletedNote = this.notes[index];
+        // Remove the note
+        this.notes.splice(index, 1);
         this.saveNotes();
         this.renderNotes();
         this.updateStats();
-        this.showToast('Note deleted successfully!', 'success');
+        // Store for undo
+        this.lastDeletedNote = deletedNote;
+        this.lastDeletedNoteIndex = index;
+        // Show snackbar
+        this.showSnackbar('Note deleted', () => {
+            // Undo callback
+            this.notes.splice(this.lastDeletedNoteIndex, 0, this.lastDeletedNote);
+            this.saveNotes();
+            this.renderNotes();
+            this.updateStats();
+            this.hideSnackbar();
+            this.lastDeletedNote = null;
+            this.lastDeletedNoteIndex = null;
+        });
     }
 
     // Delete a sub-note
@@ -567,7 +600,22 @@ class NoteManager {
                 this.closeSubNoteModal();
             }
         } else {
-            if (this.addSubNote('', content)) {
+            const lines = content.split('\n');
+            let title, actualContent;
+            if (lines.length === 1) {
+                // Single line: use as content, generic title
+                title = 'Untitled Sub-Note';
+                actualContent = lines[0].trim();
+            } else {
+                // Multi-line: first line is title, rest is content
+                title = lines[0].trim() || 'Untitled Sub-Note';
+                actualContent = lines.slice(1).join('\n').trim();
+                if (!actualContent) {
+                    actualContent = title;
+                    title = 'Untitled Sub-Note';
+                }
+            }
+            if (this.addSubNote(title, actualContent)) {
                 this.closeSubNoteModal();
             }
         }
@@ -577,6 +625,14 @@ class NoteManager {
     renderSubNotes() {
         const subNotesList = document.getElementById('subNotesList');
         const note = this.notes.find(n => n.id === this.currentNoteId);
+        const subNotesSection = document.querySelector('.sub-notes-section');
+        if (subNotesSection) {
+            if (this.showMoreActions) {
+                subNotesSection.classList.add('show-more-actions');
+            } else {
+                subNotesSection.classList.remove('show-more-actions');
+            }
+        }
         
         if (!note || !note.subNotes || note.subNotes.length === 0) {
             subNotesList.innerHTML = '<div class="no-sub-notes">No sub-notes yet. Add your first sub-note!</div>';
@@ -592,6 +648,9 @@ class NoteManager {
                     <div class="sub-note-arrows">
                         <button class="arrow-btn up-arrow" ${index === 0 ? 'disabled' : ''} title="Move up">
                             <span>↑</span>
+                        </button>
+                        <button class="arrow-btn down-arrow" ${index === note.subNotes.length - 1 ? 'disabled' : ''} title="Move down">
+                            <span>↓</span>
                         </button>
                     </div>
                 ` : ''}
@@ -664,12 +723,8 @@ class NoteManager {
     // Update statistics
     updateStats() {
         const totalNotes = this.notes.length;
-        const totalWords = this.notes.reduce((sum, note) => 
-            sum + note.content.split(/\s+/).filter(word => word.length > 0).length, 0
-        );
 
         document.getElementById('totalNotes').textContent = totalNotes;
-        document.getElementById('totalWords').textContent = totalWords;
     }
 
     // Clear input fields
@@ -677,18 +732,6 @@ class NoteManager {
         document.getElementById('noteTitle').value = '';
         document.getElementById('noteContent').value = '';
         document.getElementById('noteTitle').focus();
-    }
-
-    // Show toast notification
-    showToast(message, type = 'info') {
-        const toast = document.getElementById('toast');
-        toast.textContent = message;
-        toast.className = `toast ${type}`;
-        toast.classList.add('show');
-
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, 3000);
     }
 
     // Escape HTML to prevent XSS
@@ -701,64 +744,82 @@ class NoteManager {
     // Initialize event listeners
     initializeEventListeners() {
         // Floating Action Button
-        document.getElementById('fab').addEventListener('click', () => {
-            this.toggleNoteInput();
-        });
+        const fab = document.getElementById('fab');
+        if (fab) {
+            fab.addEventListener('click', () => {
+                this.toggleNoteInput();
+            });
+        }
 
         // Save button
-        document.getElementById('saveBtn').addEventListener('click', () => {
-            const title = document.getElementById('noteTitle').value;
-            const content = document.getElementById('noteContent').value;
-            
-            if (this.addNote(title, content)) {
-                this.clearInputs();
-                this.hideNoteInput();
-            }
-        });
-
-        // Clear button
-        document.getElementById('clearBtn').addEventListener('click', () => {
-            this.clearInputs();
-        });
-
-        // Cancel button
-        document.getElementById('cancelBtn').addEventListener('click', () => {
-            this.hideNoteInput();
-        });
-
-        // Search input
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            this.searchNotes(e.target.value);
-        });
-
-        // Enter key to save note
-        document.getElementById('noteContent').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.ctrlKey) {
-                e.preventDefault();
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
                 const title = document.getElementById('noteTitle').value;
                 const content = document.getElementById('noteContent').value;
                 
                 if (this.addNote(title, content)) {
                     this.clearInputs();
                     this.hideNoteInput();
-                    // Hide keyboard on mobile
-                    document.getElementById('noteContent').blur();
                 }
-            }
-        });
+            });
+        }
 
-        // Auto-save draft
-        let draftTimeout;
-        document.getElementById('noteContent').addEventListener('input', () => {
-            clearTimeout(draftTimeout);
-            draftTimeout = setTimeout(() => {
-                const title = document.getElementById('noteTitle').value;
-                const content = document.getElementById('noteContent').value;
-                if (content.trim()) {
-                    localStorage.setItem('draft', JSON.stringify({ title, content }));
+        // Clear button
+        const clearBtn = document.getElementById('clearBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.clearInputs();
+            });
+        }
+
+        // Cancel button
+        const cancelBtn = document.getElementById('cancelBtn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                this.hideNoteInput();
+            });
+        }
+
+        // Search input
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.searchNotes(e.target.value);
+            });
+        }
+
+        // Enter key to save note
+        const noteContent = document.getElementById('noteContent');
+        if (noteContent) {
+            noteContent.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    e.preventDefault();
+                    const title = document.getElementById('noteTitle').value;
+                    const content = document.getElementById('noteContent').value;
+                    
+                    if (this.addNote(title, content)) {
+                        this.clearInputs();
+                        this.hideNoteInput();
+                        // Hide keyboard on mobile
+                        document.getElementById('noteContent').blur();
+                    }
                 }
-            }, 1000);
-        });
+            });
+
+            // Auto-save draft
+            let draftTimeout;
+            noteContent.addEventListener('input', () => {
+                clearTimeout(draftTimeout);
+                draftTimeout = setTimeout(() => {
+                    const title = document.getElementById('noteTitle').value;
+                    const content = document.getElementById('noteContent').value;
+                    if (content.trim()) {
+                        localStorage.setItem('draft', JSON.stringify({ title, content }));
+                    }
+                }, 1000);
+            });
+        }
 
         // Load draft on page load
         this.loadDraft();
@@ -920,7 +981,6 @@ class NoteManager {
         link.download = `notes_${new Date().toISOString().split('T')[0]}.json`;
         link.click();
         URL.revokeObjectURL(url);
-        this.showToast('Notes exported successfully!', 'success');
     }
 
     // Import notes from JSON
@@ -934,12 +994,11 @@ class NoteManager {
                     this.saveNotes();
                     this.renderNotes();
                     this.updateStats();
-                    this.showToast(`${importedNotes.length} notes imported successfully!`, 'success');
                 } else {
                     throw new Error('Invalid file format');
                 }
             } catch (error) {
-                this.showToast('Error importing notes. Please check the file format.', 'error');
+                console.error('Error importing notes:', error);
             }
         };
         reader.readAsText(file);
@@ -949,7 +1008,7 @@ class NoteManager {
     copyNote(content) {
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(content).then(() => {
-                this.showToast('Note copied to clipboard!', 'success');
+                // Copy successful
             }).catch(() => {
                 this.fallbackCopy(content);
             });
@@ -971,9 +1030,8 @@ class NoteManager {
         
         try {
             document.execCommand('copy');
-            this.showToast('Note copied to clipboard!', 'success');
         } catch (err) {
-            this.showToast('Failed to copy note', 'error');
+            // Copy failed
         }
         
         document.body.removeChild(textArea);
@@ -1005,12 +1063,6 @@ class NoteManager {
                 '<span>🔽</span> Hide Arrows' : 
                 '<span>🔼</span> Show Arrows';
         }
-        
-        // Show feedback
-        this.showToast(
-            this.arrowsVisible ? 'Arrow controls enabled' : 'Arrow controls hidden', 
-            'info'
-        );
     }
 
     // Edit a sub-note
@@ -1088,12 +1140,10 @@ class NoteManager {
         const key = keyInput.value.trim();
         
         if (!key) {
-            this.showToast('Please enter a key', 'error');
             return;
         }
         
         if (key.length < 4) {
-            this.showToast('Key must be at least 4 characters long', 'error');
             return;
         }
         
@@ -1111,10 +1161,7 @@ class NoteManager {
             // Update UI
             this.updateKeyButton();
             this.closeKeyModal();
-            this.showToast('🔐 Data encrypted successfully!', 'success');
-            
         } catch (error) {
-            this.showToast('Failed to encrypt data', 'error');
             console.error('Encryption error:', error);
         }
     }
@@ -1124,7 +1171,6 @@ class NoteManager {
         const key = keyInput.value.trim();
         
         if (!key) {
-            this.showToast('Please enter your key', 'error');
             return;
         }
         
@@ -1139,13 +1185,11 @@ class NoteManager {
                 this.closeKeyModal();
                 this.renderNotes();
                 this.updateStats();
-                this.showToast('🔓 Data decrypted successfully!', 'success');
             } else {
-                this.showToast('❌ Invalid key', 'error');
+                console.error('❌ Invalid key');
             }
             
         } catch (error) {
-            this.showToast('Failed to decrypt data', 'error');
             console.error('Decryption error:', error);
         }
     }
@@ -1163,7 +1207,6 @@ class NoteManager {
             this.closeKeyModal();
             this.renderNotes();
             this.updateStats();
-            this.showToast('🗑️ All data cleared', 'info');
         }
     }
 
@@ -1184,7 +1227,6 @@ class NoteManager {
             this.closeKeyModal();
             this.renderNotes();
             this.updateStats();
-            this.showToast('🔓 Encryption disabled successfully!', 'success');
         }
     }
 
@@ -1199,24 +1241,38 @@ class NoteManager {
         }
     }
 
-    // Simple encryption/decryption using CryptoJS-like approach
+    // Unicode-safe Base64 encode/decode helpers
+    b64EncodeUnicode(str) {
+        return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+            return String.fromCharCode('0x' + p1);
+        }));
+    }
+    b64DecodeUnicode(str) {
+        return decodeURIComponent(Array.prototype.map.call(atob(str), function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+    }
+
     encryptText(text, key) {
         if (!text || !key) return text;
-        
-        // Simple XOR encryption (for demonstration - in production use proper crypto)
-        let encrypted = '';
-        for (let i = 0; i < text.length; i++) {
-            const charCode = text.charCodeAt(i) ^ key.charCodeAt(i % key.length);
-            encrypted += String.fromCharCode(charCode);
+        try {
+            // Simple XOR encryption (for demonstration - in production use proper crypto)
+            let encrypted = '';
+            for (let i = 0; i < text.length; i++) {
+                const charCode = text.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+                encrypted += String.fromCharCode(charCode);
+            }
+            return this.b64EncodeUnicode(encrypted); // Unicode-safe Base64 encode
+        } catch (e) {
+            console.error('Encryption error:', e);
+            return text;
         }
-        return btoa(encrypted); // Base64 encode
     }
 
     decryptText(encryptedText, key) {
         if (!encryptedText || !key) return encryptedText;
-        
         try {
-            const decoded = atob(encryptedText); // Base64 decode
+            const decoded = this.b64DecodeUnicode(encryptedText); // Unicode-safe Base64 decode
             let decrypted = '';
             for (let i = 0; i < decoded.length; i++) {
                 const charCode = decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length);
@@ -1224,7 +1280,8 @@ class NoteManager {
             }
             return decrypted;
         } catch (error) {
-            return null; // Invalid encrypted text
+            console.error('Decryption error:', error);
+            return '[Decryption failed: corrupted or too large]';
         }
     }
 
@@ -1324,11 +1381,41 @@ class NoteManager {
 
     // Check encryption status on startup
     checkEncryptionStatus() {
-        if (this.isEncrypted && !this.encryptionKey) {
+        // Since we have a default encryption key, we don't need to show the key modal
+        // Encryption is enabled by default with the key "saurav"
+        this.updateKeyButton();
+    }
+
+    // Add these methods to NoteManager:
+    showSnackbar(message, undoCallback) {
+        const snackbar = document.getElementById('snackbar');
+        const snackbarMsg = document.getElementById('snackbar-message');
+        const snackbarUndo = document.getElementById('snackbar-undo');
+        if (!snackbar || !snackbarMsg || !snackbarUndo) return;
+        snackbarMsg.textContent = message;
+        snackbar.style.display = 'flex';
+        snackbar.classList.add('show');
+        // Remove previous listeners
+        snackbarUndo.onclick = null;
+        // Set up undo
+        snackbarUndo.onclick = () => {
+            if (this.snackbarTimer) clearTimeout(this.snackbarTimer);
+            if (undoCallback) undoCallback();
+        };
+        // Hide after 2 seconds
+        this.snackbarTimer = setTimeout(() => {
+            this.hideSnackbar();
+            this.lastDeletedNote = null;
+            this.lastDeletedNoteIndex = null;
+        }, 2000);
+    }
+    hideSnackbar() {
+        const snackbar = document.getElementById('snackbar');
+        if (snackbar) {
+            snackbar.classList.remove('show');
             setTimeout(() => {
-                this.showToast('🔐 Encryption key is not set. Please set a key to access your notes.', 'info');
-                this.showKeyModal();
-            }, 1000);
+                snackbar.style.display = 'none';
+            }, 300);
         }
     }
 }
@@ -1454,7 +1541,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show install button or notification
         setTimeout(() => {
             if (deferredPrompt) {
-                noteManager.showToast('Install this app for a better experience!', 'info');
             }
         }, 3000);
     });

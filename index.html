@@ -34,7 +34,7 @@
             <div class="section-header">
                 <div class="section-title-row">
                     <h2>Your Notes</h2>
-                    <button id="keyBtn" class="key-btn" title="Set/Enter Encryption Key">🔑</button>
+                    <button id="keyBtn" class="key-btn" title="Set/Enter Encryption Key" style="display: none;">🔑</button>
                 </div>
                 <div class="search-box">
                     <input type="text" id="searchInput" placeholder="Search notes..." class="search-input">
@@ -49,10 +49,6 @@
             <div class="stat-item">
                 <span class="stat-number" id="totalNotes">0</span>
                 <span class="stat-label">Total Notes</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-number" id="totalWords">0</span>
-                <span class="stat-label">Total Words</span>
             </div>
         </div>
     </div>
@@ -81,8 +77,9 @@
                     <div class="sub-notes-header">
                         <h3>📝 Sub-Notes</h3>
                         <div class="sub-notes-controls">
-                            <button id="toggleArrowsBtn" class="btn btn-secondary btn-small">🔼 Show Arrows</button>
                             <button id="addSubNoteBtn" class="btn btn-primary btn-small">+ Add Sub-Note</button>
+                            <button id="toggleArrowsBtn" class="btn btn-primary btn-small">🔼 Show Arrows</button>
+                            <button id="moreSubNoteBtn" class="btn btn-primary btn-small">⋯ More</button>
                         </div>
                     </div>
                     
@@ -142,9 +139,10 @@
         </div>
     </div>
 
-    <!-- Toast notification -->
-    <div id="toast" class="toast"></div>
-
     <script src="script.js"></script>
+    <div id="snackbar" class="snackbar" style="display:none;">
+      <span id="snackbar-message"></span>
+      <button id="snackbar-undo" class="snackbar-undo">Undo</button>
+    </div>
 </body>
 </html> 
