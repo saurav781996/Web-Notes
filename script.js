@@ -599,23 +599,17 @@ class NoteManager {
                 this.closeSubNoteModal();
             }
         } else {
-            const lines = content.split('\n');
-            let title, actualContent;
-            if (lines.length === 1) {
-                // Single line: use as content, generic title
-                title = 'Untitled Sub-Note';
-                actualContent = lines[0].trim();
-            } else {
-                // Multi-line: first line is title, rest is content
-                title = lines[0].trim() || 'Untitled Sub-Note';
-                actualContent = lines.slice(1).join('\n').trim();
-                if (!actualContent) {
-                    actualContent = title;
-                    title = 'Untitled Sub-Note';
+            // Save the entire content as the sub-note content
+            // Use a default title and save all text as content
+            const title = 'Untitled Sub-Note';
+            const actualContent = content.trim();
+            
+            if (actualContent) {
+                if (this.addSubNote(title, actualContent)) {
+                    this.closeSubNoteModal();
                 }
-            }
-            if (this.addSubNote(title, actualContent)) {
-                this.closeSubNoteModal();
+            } else {
+                this.showToast('Please enter some content for your sub-note', 'error');
             }
         }
     }
@@ -874,7 +868,7 @@ class NoteManager {
     setupNotesEventListeners() {
         const notesList = document.getElementById('notesList');
         
-        // Single event listener for all note interactions
+        // Single event listener for all note interactions (works for both desktop and mobile)
         notesList.addEventListener('click', (e) => {
             // Handle action buttons
             const actionBtn = e.target.closest('.action-btn');
@@ -890,7 +884,9 @@ class NoteManager {
                     const content = actionBtn.dataset.content;
                     this.copyNote(content);
                 } else if (action === 'delete') {
-                    this.deleteNote(noteId);
+                    if (confirm('Are you sure you want to delete this note?')) {
+                        this.deleteNote(noteId);
+                    }
                 }
                 return;
             }
@@ -901,54 +897,6 @@ class NoteManager {
                 const noteId = parseInt(noteItem.dataset.id);
                 this.showNoteModal(noteId);
             }
-        });
-
-        // Handle touch events specifically for mobile
-        let touchStartTime = 0;
-        let touchStartElement = null;
-
-        notesList.addEventListener('touchstart', (e) => {
-            const noteItem = e.target.closest('.note-item');
-            if (noteItem) {
-                touchStartTime = Date.now();
-                touchStartElement = noteItem;
-            }
-        });
-
-        notesList.addEventListener('touchend', (e) => {
-            if (!touchStartElement) return;
-
-            const touchEndTime = Date.now();
-            const touchDuration = touchEndTime - touchStartTime;
-            const noteItem = e.target.closest('.note-item');
-
-            // Only handle if it's the same element and a short tap (not a swipe)
-            if (noteItem === touchStartElement && touchDuration < 300) {
-                // Check if touch was on an action button
-                const actionBtn = e.target.closest('.action-btn');
-                if (actionBtn) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    const action = actionBtn.dataset.action;
-                    const noteId = parseInt(noteItem.dataset.id);
-                    
-                    if (action === 'copy') {
-                        const content = actionBtn.dataset.content;
-                        this.copyNote(content);
-                    } else if (action === 'delete') {
-                        this.deleteNote(noteId);
-                    }
-                } else {
-                    // If touch was on the note item itself (not on buttons), open the modal
-                    const noteId = parseInt(noteItem.dataset.id);
-                    this.showNoteModal(noteId);
-                }
-            }
-
-            // Reset
-            touchStartTime = 0;
-            touchStartElement = null;
         });
     }
 
