@@ -928,7 +928,7 @@ header p {
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     z-index: 1000;
     opacity: 0;
@@ -936,6 +936,7 @@ header p {
     transition: all 0.3s ease;
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
+    padding-top: 20px;
 }
 
 .modal-overlay.show {
@@ -947,7 +948,7 @@ header p {
     background: white;
     border-radius: 15px;
     max-width: 90%;
-    max-height: 90%;
+    max-height: 95%;
     width: 600px;
     overflow: hidden;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -1000,7 +1001,7 @@ header p {
 
 .modal-body {
     padding: 20px;
-    max-height: 70vh;
+    max-height: 75vh;
     overflow-y: auto;
 }
 
@@ -1188,11 +1189,15 @@ header p {
 
 /* Mobile responsive for modals */
 @media (max-width: 768px) {
+    .modal-overlay {
+        padding-top: 10px;
+    }
+    
     .modal-content {
         max-width: 95%;
         width: 95%;
-        max-height: 95%;
-        margin: 10px;
+        max-height: 98%;
+        margin: 0 10px;
     }
     
     .modal-small {
@@ -1210,7 +1215,7 @@ header p {
     
     .modal-body {
         padding: 15px;
-        max-height: 80vh;
+        max-height: 85vh;
     }
     
     .sub-notes-header {

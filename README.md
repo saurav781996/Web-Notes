@@ -13,7 +13,6 @@ A modern, feature-rich web-based note-taking application with encryption, sub-no
 
 ### 🔐 Security & Encryption
 - **Data Encryption**: All notes are encrypted by default
-- **Custom Encryption Key**: Set your own encryption key
 - **Secure Storage**: Notes stored securely in browser localStorage
 - **Key Management**: Easy encryption key management interface
 
