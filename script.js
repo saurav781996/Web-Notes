@@ -7,6 +7,9 @@ class NoteManager {
         this.encryptionKey = "saurav"; // Default encryption key
         this.isEncrypted = true; // Enable encryption by default
         this.showMoreActions = false; // Track if more actions are shown
+        this.deletedNotes = []; // Stack to store deleted notes for undo
+        this.maxUndoStack = 5; // Maximum number of notes to keep in undo stack
+        this.undoTimeout = null; // Timeout for auto-hiding undo button
         this.loadNotes();
         this.initializeEventListeners();
         this.renderNotes();
@@ -17,11 +20,6 @@ class NoteManager {
         
         // Check if encryption is required on startup
         this.checkEncryptionStatus();
-
-        // Variables to store last deleted note and its index, and snackbar timer
-        this.lastDeletedNote = null;
-        this.lastDeletedNoteIndex = null;
-        this.snackbarTimer = null;
     }
 
     // Initialize mobile-specific features
@@ -416,6 +414,7 @@ class NoteManager {
     // Add a new note
     addNote(title, content) {
         if (!content.trim()) {
+            this.showToast('Please enter some content for your note', 'error');
             return false;
         }
 
@@ -432,6 +431,7 @@ class NoteManager {
         this.saveNotes();
         this.renderNotes();
         this.updateStats();
+        this.showToast('Note saved successfully!', 'success');
         return true;
     }
 
@@ -461,29 +461,28 @@ class NoteManager {
 
     // Delete a note
     deleteNote(id) {
-        // Find the note and its index
-        const index = this.notes.findIndex(note => note.id === id);
-        if (index === -1) return;
-        const deletedNote = this.notes[index];
-        // Remove the note
-        this.notes.splice(index, 1);
-        this.saveNotes();
-        this.renderNotes();
-        this.updateStats();
-        // Store for undo
-        this.lastDeletedNote = deletedNote;
-        this.lastDeletedNoteIndex = index;
-        // Show snackbar
-        this.showSnackbar('Note deleted', () => {
-            // Undo callback
-            this.notes.splice(this.lastDeletedNoteIndex, 0, this.lastDeletedNote);
+        const noteToDelete = this.notes.find(note => note.id === id);
+        if (noteToDelete) {
+            // Store the deleted note in undo stack
+            this.deletedNotes.unshift({
+                note: noteToDelete,
+                timestamp: Date.now()
+            });
+            
+            // Keep only the last maxUndoStack items
+            if (this.deletedNotes.length > this.maxUndoStack) {
+                this.deletedNotes = this.deletedNotes.slice(0, this.maxUndoStack);
+            }
+            
+            // Remove the note from the main notes array
+            this.notes = this.notes.filter(note => note.id !== id);
             this.saveNotes();
             this.renderNotes();
             this.updateStats();
-            this.hideSnackbar();
-            this.lastDeletedNote = null;
-            this.lastDeletedNoteIndex = null;
-        });
+            
+            // Show undo button
+            this.showUndoButton();
+        }
     }
 
     // Delete a sub-note
@@ -500,7 +499,7 @@ class NoteManager {
     copySubNote(content) {
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(content).then(() => {
-                // Copy successful
+                // Note copied successfully (no toast)
             }).catch(() => {
                 this.fallbackCopySubNote(content);
             });
@@ -734,6 +733,30 @@ class NoteManager {
         document.getElementById('noteTitle').focus();
     }
 
+    // Show toast notification
+    showToast(message, type = 'info') {
+        const toast = document.getElementById('toast');
+        
+        // Clear any existing timeout
+        if (this.toastTimeout) {
+            clearTimeout(this.toastTimeout);
+        }
+        
+        // Hide current toast if visible
+        toast.classList.remove('show');
+        
+        // Wait a bit before showing new toast to prevent overlap
+        setTimeout(() => {
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+
+            this.toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }, 100);
+    }
+
     // Escape HTML to prevent XSS
     escapeHtml(text) {
         const div = document.createElement('div');
@@ -824,6 +847,25 @@ class NoteManager {
         // Load draft on page load
         this.loadDraft();
 
+        // Export button
+        const exportBtn = document.getElementById('exportBtn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                this.showImportExportModal('export');
+            });
+        }
+
+        // Import/Export modal event listeners
+        this.initializeImportExportEvents();
+
+        // Undo button
+        const undoBtn = document.getElementById('undoBtn');
+        if (undoBtn) {
+            undoBtn.addEventListener('click', () => {
+                this.undoDelete();
+            });
+        }
+
         // Set up single event listener for notes list
         this.setupNotesEventListeners();
     }
@@ -910,6 +952,79 @@ class NoteManager {
         });
     }
 
+    // Initialize import/export modal event listeners
+    initializeImportExportEvents() {
+        // Close modal button
+        const closeBtn = document.getElementById('closeImportExportModal');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.closeImportExportModal();
+            });
+        }
+
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                this.switchImportExportTab(tab);
+            });
+        });
+
+        // Export all notes button
+        const exportAllBtn = document.getElementById('exportAllBtn');
+        if (exportAllBtn) {
+            exportAllBtn.addEventListener('click', () => {
+                this.exportAllNotes();
+            });
+        }
+
+        // File selection for import
+        const selectFileBtn = document.getElementById('selectFileBtn');
+        const importFile = document.getElementById('importFile');
+        if (selectFileBtn && importFile) {
+            selectFileBtn.addEventListener('click', () => {
+                importFile.click();
+            });
+            
+            importFile.addEventListener('change', (e) => {
+                this.handleFileSelection(e);
+            });
+        }
+
+        // Import button
+        const importBtn = document.getElementById('importBtnModal');
+        if (importBtn) {
+            importBtn.addEventListener('click', () => {
+                this.handleImport();
+            });
+        }
+
+        // Reset import button
+        const resetImportBtn = document.getElementById('resetImportBtn');
+        if (resetImportBtn) {
+            resetImportBtn.addEventListener('click', () => {
+                this.resetImportForm();
+            });
+        }
+
+        // Import strategy checkboxes
+        const mergeNotes = document.getElementById('mergeNotes');
+        const overwriteNotes = document.getElementById('overwriteNotes');
+        if (mergeNotes && overwriteNotes) {
+            mergeNotes.addEventListener('change', () => {
+                if (mergeNotes.checked) {
+                    overwriteNotes.checked = false;
+                }
+            });
+            
+            overwriteNotes.addEventListener('change', () => {
+                if (overwriteNotes.checked) {
+                    mergeNotes.checked = false;
+                }
+            });
+        }
+    }
+
     // Toggle note input section visibility
     toggleNoteInput() {
         const noteInputSection = document.getElementById('noteInputSection');
@@ -981,6 +1096,164 @@ class NoteManager {
         link.download = `notes_${new Date().toISOString().split('T')[0]}.json`;
         link.click();
         URL.revokeObjectURL(url);
+        this.showToast('Notes exported successfully!', 'success');
+    }
+
+    // Show import/export modal
+    showImportExportModal(tab = 'export') {
+        const modal = document.getElementById('importExportModal');
+        modal.classList.add('show');
+        
+        // Switch to specified tab
+        this.switchImportExportTab(tab);
+        
+        // Update export stats
+        this.updateExportStats();
+        
+        // Add event listeners for modal interactions
+        const handleOutsideClick = (e) => {
+            if (e.target === modal) {
+                this.closeImportExportModal();
+            }
+        };
+        
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                this.closeImportExportModal();
+            }
+        };
+        
+        modal.addEventListener('click', handleOutsideClick);
+        document.addEventListener('keydown', handleKeyDown);
+        
+        // Store cleanup function
+        this.importExportCleanup = () => {
+            modal.removeEventListener('click', handleOutsideClick);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }
+
+    // Close import/export modal
+    closeImportExportModal() {
+        const modal = document.getElementById('importExportModal');
+        modal.classList.remove('show');
+        
+        // Clean up event listeners
+        if (this.importExportCleanup) {
+            this.importExportCleanup();
+            this.importExportCleanup = null;
+        }
+        
+        // Reset import form
+        this.resetImportForm();
+    }
+
+    // Switch between import/export tabs
+    switchImportExportTab(tab) {
+        // Update tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+        
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(`${tab}Tab`).classList.add('active');
+    }
+
+    // Update export statistics
+    updateExportStats() {
+        const totalNotes = this.notes.length;
+        const totalSubNotes = this.notes.reduce((sum, note) => sum + (note.subNotes ? note.subNotes.length : 0), 0);
+        
+        document.getElementById('exportTotalNotes').textContent = totalNotes;
+        document.getElementById('exportTotalSubNotes').textContent = totalSubNotes;
+    }
+
+    // Export all notes
+    exportAllNotes() {
+        try {
+            const dataStr = JSON.stringify(this.notes, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `notes_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            this.showToast('Notes exported successfully!', 'success');
+            this.closeImportExportModal();
+        } catch (error) {
+            this.showToast('Error exporting notes', 'error');
+        }
+    }
+
+    // Handle file selection for import
+    handleFileSelection(event) {
+        const file = event.target.files[0];
+        if (file) {
+            document.getElementById('selectedFileName').textContent = file.name;
+            document.getElementById('importBtnModal').disabled = false;
+        } else {
+            document.getElementById('selectedFileName').textContent = 'No file selected';
+            document.getElementById('importBtnModal').disabled = true;
+        }
+    }
+
+    // Reset import form
+    resetImportForm() {
+        document.getElementById('importFile').value = '';
+        document.getElementById('selectedFileName').textContent = 'No file selected';
+        document.getElementById('importBtnModal').disabled = true;
+        document.getElementById('mergeNotes').checked = true;
+        document.getElementById('overwriteNotes').checked = false;
+    }
+
+    // Handle import from modal
+    handleImport() {
+        const fileInput = document.getElementById('importFile');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            this.showToast('Please select a file to import', 'error');
+            return;
+        }
+        
+        const mergeNotes = document.getElementById('mergeNotes').checked;
+        const overwriteNotes = document.getElementById('overwriteNotes').checked;
+        
+        if (!mergeNotes && !overwriteNotes) {
+            this.showToast('Please select an import strategy', 'error');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedNotes = JSON.parse(e.target.result);
+                if (!Array.isArray(importedNotes)) {
+                    throw new Error('Invalid file format');
+                }
+                
+                if (overwriteNotes) {
+                    this.notes = importedNotes;
+                } else {
+                    this.notes = [...this.notes, ...importedNotes];
+                }
+                
+                this.saveNotes();
+                this.renderNotes();
+                this.updateStats();
+                this.showToast(`${importedNotes.length} notes imported successfully!`, 'success');
+                this.closeImportExportModal();
+            } catch (error) {
+                this.showToast('Error importing notes. Please check the file format.', 'error');
+            }
+        };
+        reader.readAsText(file);
     }
 
     // Import notes from JSON
@@ -994,11 +1267,12 @@ class NoteManager {
                     this.saveNotes();
                     this.renderNotes();
                     this.updateStats();
+                    this.showToast(`${importedNotes.length} notes imported successfully!`, 'success');
                 } else {
                     throw new Error('Invalid file format');
                 }
             } catch (error) {
-                console.error('Error importing notes:', error);
+                this.showToast('Error importing notes. Please check the file format.', 'error');
             }
         };
         reader.readAsText(file);
@@ -1008,7 +1282,7 @@ class NoteManager {
     copyNote(content) {
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(content).then(() => {
-                // Copy successful
+                // Note copied successfully (no toast)
             }).catch(() => {
                 this.fallbackCopy(content);
             });
@@ -1030,8 +1304,9 @@ class NoteManager {
         
         try {
             document.execCommand('copy');
+            // Note copied successfully (no toast)
         } catch (err) {
-            // Copy failed
+            // Copy failed (no toast)
         }
         
         document.body.removeChild(textArea);
@@ -1063,6 +1338,12 @@ class NoteManager {
                 '<span>🔽</span> Hide Arrows' : 
                 '<span>🔼</span> Show Arrows';
         }
+        
+        // Show feedback
+        this.showToast(
+            this.arrowsVisible ? 'Arrow controls enabled' : 'Arrow controls hidden', 
+            'info'
+        );
     }
 
     // Edit a sub-note
@@ -1140,10 +1421,12 @@ class NoteManager {
         const key = keyInput.value.trim();
         
         if (!key) {
+            this.showToast('Please enter a key', 'error');
             return;
         }
         
         if (key.length < 4) {
+            this.showToast('Key must be at least 4 characters long', 'error');
             return;
         }
         
@@ -1161,7 +1444,10 @@ class NoteManager {
             // Update UI
             this.updateKeyButton();
             this.closeKeyModal();
+            this.showToast('🔐 Data encrypted successfully!', 'success');
+            
         } catch (error) {
+            this.showToast('Failed to encrypt data', 'error');
             console.error('Encryption error:', error);
         }
     }
@@ -1171,6 +1457,7 @@ class NoteManager {
         const key = keyInput.value.trim();
         
         if (!key) {
+            this.showToast('Please enter your key', 'error');
             return;
         }
         
@@ -1185,11 +1472,13 @@ class NoteManager {
                 this.closeKeyModal();
                 this.renderNotes();
                 this.updateStats();
+                this.showToast('🔓 Data decrypted successfully!', 'success');
             } else {
-                console.error('❌ Invalid key');
+                this.showToast('❌ Invalid key', 'error');
             }
             
         } catch (error) {
+            this.showToast('Failed to decrypt data', 'error');
             console.error('Decryption error:', error);
         }
     }
@@ -1207,6 +1496,7 @@ class NoteManager {
             this.closeKeyModal();
             this.renderNotes();
             this.updateStats();
+            this.showToast('🗑️ All data cleared', 'info');
         }
     }
 
@@ -1227,6 +1517,7 @@ class NoteManager {
             this.closeKeyModal();
             this.renderNotes();
             this.updateStats();
+            this.showToast('🔓 Encryption disabled successfully!', 'success');
         }
     }
 
@@ -1386,36 +1677,56 @@ class NoteManager {
         this.updateKeyButton();
     }
 
-    // Add these methods to NoteManager:
-    showSnackbar(message, undoCallback) {
-        const snackbar = document.getElementById('snackbar');
-        const snackbarMsg = document.getElementById('snackbar-message');
-        const snackbarUndo = document.getElementById('snackbar-undo');
-        if (!snackbar || !snackbarMsg || !snackbarUndo) return;
-        snackbarMsg.textContent = message;
-        snackbar.style.display = 'flex';
-        snackbar.classList.add('show');
-        // Remove previous listeners
-        snackbarUndo.onclick = null;
-        // Set up undo
-        snackbarUndo.onclick = () => {
-            if (this.snackbarTimer) clearTimeout(this.snackbarTimer);
-            if (undoCallback) undoCallback();
-        };
-        // Hide after 2 seconds
-        this.snackbarTimer = setTimeout(() => {
-            this.hideSnackbar();
-            this.lastDeletedNote = null;
-            this.lastDeletedNoteIndex = null;
-        }, 2000);
+    // Show undo button
+    showUndoButton() {
+        const undoContainer = document.getElementById('undoContainer');
+        const undoBtn = document.getElementById('undoBtn');
+        
+        if (undoContainer && undoBtn) {
+            undoContainer.style.display = 'flex';
+            
+            // Clear any existing timeout
+            if (this.undoTimeout) {
+                clearTimeout(this.undoTimeout);
+            }
+            
+            // Auto-hide after 10 seconds
+            this.undoTimeout = setTimeout(() => {
+                this.hideUndoButton();
+            }, 10000);
+        }
     }
-    hideSnackbar() {
-        const snackbar = document.getElementById('snackbar');
-        if (snackbar) {
-            snackbar.classList.remove('show');
-            setTimeout(() => {
-                snackbar.style.display = 'none';
-            }, 300);
+
+    // Hide undo button
+    hideUndoButton() {
+        const undoContainer = document.getElementById('undoContainer');
+        if (undoContainer) {
+            undoContainer.style.display = 'none';
+        }
+        
+        if (this.undoTimeout) {
+            clearTimeout(this.undoTimeout);
+            this.undoTimeout = null;
+        }
+    }
+
+    // Undo the last deletion
+    undoDelete() {
+        if (this.deletedNotes.length > 0) {
+            const deletedNoteData = this.deletedNotes.shift();
+            const restoredNote = deletedNoteData.note;
+            
+            // Add the note back to the beginning of the array
+            this.notes.unshift(restoredNote);
+            this.saveNotes();
+            this.renderNotes();
+            this.updateStats();
+            
+            // Hide the undo button
+            this.hideUndoButton();
+            
+            // Show success message
+            this.showToast(`Note restored successfully!`, 'success');
         }
     }
 }
@@ -1541,6 +1852,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show install button or notification
         setTimeout(() => {
             if (deferredPrompt) {
+                noteManager.showToast('Install this app for a better experience!', 'info');
             }
         }, 3000);
     });

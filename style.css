@@ -163,8 +163,43 @@ header p {
 
 .section-title-row {
     display: flex;
+    justify-content: space-between;
     align-items: center;
     gap: 12px;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.header-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.header-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .key-btn {
@@ -398,6 +433,55 @@ header p {
     justify-content: space-around;
 }
 
+.undo-container {
+    display: flex;
+    align-items: center;
+}
+
+.undo-btn {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+    animation: slideInFromRight 0.3s ease;
+}
+
+.undo-btn:hover {
+    background: linear-gradient(135deg, #ff5252 0%, #d32f2f 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+}
+
+.undo-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+}
+
+.undo-btn span {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+@keyframes slideInFromRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
 .stat-item {
     padding: 10px;
     flex: 1;
@@ -413,6 +497,26 @@ header p {
 .stat-label {
     color: #6c757d;
     font-size: 0.9rem;
+}
+
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #333;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 2000;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    max-width: 300px;
+    word-wrap: break-word;
+}
+
+.toast.show {
+    transform: translateX(0);
 }
 
 .empty-state {
@@ -570,6 +674,20 @@ header p {
         font-size: 1.8rem;
     }
     
+    .toast {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        transform: translateY(-100px);
+        border-radius: 8px;
+        padding: 12px 15px;
+        font-size: 14px;
+    }
+    
+    .toast.show {
+        transform: translateY(0);
+    }
+
     /* Mobile FAB positioning */
     .fab {
         bottom: 20px;
@@ -747,6 +865,14 @@ header p {
     
     .checkbox-label {
         color: #bdc3c7;
+    }
+    
+    .undo-btn {
+        background: linear-gradient(135deg, #ff5252 0%, #d32f2f 100%);
+    }
+    
+    .undo-btn:hover {
+        background: linear-gradient(135deg, #ff1744 0%, #c62828 100%);
     }
 }
 
@@ -1479,77 +1605,202 @@ header p {
     display: flex !important;
 }
 
-/* Snackbar styles for undo delete */
-.snackbar {
-    visibility: hidden;
-    min-width: 240px;
-    max-width: 90vw;
-    background: #222;
-    color: #fff;
-    text-align: left;
+/* Import/Export Modal Styles */
+.import-export-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn:hover {
+    color: var(--text-color);
+    background: var(--bg-color);
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.export-info,
+.import-info {
+    margin-bottom: 20px;
+}
+
+.export-info p,
+.import-info p {
+    margin-bottom: 15px;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.export-stats {
+    display: flex;
+    gap: 20px;
+    padding: 12px;
+    background: var(--bg-color);
     border-radius: 8px;
-    padding: 16px 24px 16px 16px;
-    position: fixed;
-    left: 50%;
-    bottom: 32px;
-    transform: translateX(-50%);
-    z-index: 3000;
+    border: 1px solid var(--border-color);
+}
+
+.export-stats span {
+    font-size: 14px;
+    color: var(--text-color);
+}
+
+.export-stats strong {
+    color: var(--primary-color);
+}
+
+.import-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.file-input-container {
     display: flex;
     align-items: center;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-    font-size: 1rem;
-    gap: 16px;
-    opacity: 0;
-    transition: opacity 0.3s, visibility 0.3s;
+    gap: 10px;
+    margin-bottom: 15px;
 }
 
-.snackbar.show {
-    visibility: visible;
-    opacity: 1;
+.selected-file-name {
+    font-size: 14px;
+    color: var(--text-muted);
+    word-break: break-all;
 }
 
-.snackbar-undo {
-    background: #fff;
-    color: #222;
-    border: none;
-    border-radius: 6px;
-    padding: 6px 18px;
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-    margin-left: 8px;
-    transition: background 0.2s, color 0.2s;
-}
-
-.snackbar-undo:hover {
-    background: #eee;
-    color: #111;
-}
-
-@media (max-width: 600px) {
-    .snackbar {
-        min-width: 0;
-        width: 90vw;
-        left: 5vw;
-        padding: 16px 12px;
-        font-size: 0.95rem;
+/* Mobile responsive styles for import/export */
+@media (max-width: 768px) {
+    .header-controls {
+        gap: 6px;
+    }
+    
+    .header-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+    
+    .import-export-tabs {
+        margin-bottom: 15px;
+    }
+    
+    .tab-btn {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    
+    .export-stats {
         flex-direction: column;
-        align-items: center;
-        gap: 12px;
-        bottom: 20px;
-        transform: none;
+        gap: 8px;
     }
-    .snackbar-undo {
-        padding: 12px 32px;
-        font-size: 1rem;
-        margin-left: 0;
-        margin-top: 0;
-        align-self: center;
-        display: block;
-        min-width: 120px;
+    
+    .file-input-container {
+        flex-direction: column;
+        align-items: stretch;
     }
-    .snackbar-message {
+    
+    .selected-file-name {
         text-align: center;
-        width: 100%;
+        padding: 8px;
+        background: var(--bg-color);
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
     }
+    
+    .import-export-modal .modal-content {
+        margin: 20px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+    }
+    
+    .import-options {
+        gap: 8px;
+    }
+    
+    .checkbox-label {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-controls {
+        gap: 4px;
+    }
+    
+    .header-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+    
+    .import-export-tabs {
+        margin-bottom: 12px;
+    }
+    
+    .tab-btn {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+    
+    .export-info p,
+    .import-info p {
+        font-size: 13px;
+    }
+    
+    .export-stats {
+        padding: 10px;
+        font-size: 13px;
+    }
+    
+    .undo-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    
+    .undo-btn span {
+        font-size: 12px;
+    }
+}
+
+.stat-item {
+    padding: 10px;
+}
+
+.stat-number {
+    font-size: 1.8rem;
+}
+
+.undo-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+.undo-btn span {
+    font-size: 14px;
 } 
