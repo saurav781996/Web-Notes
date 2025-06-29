@@ -1852,7 +1852,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show install button or notification
         setTimeout(() => {
             if (deferredPrompt) {
-                noteManager.showToast('Install this app for a better experience!', 'info');
+              //  noteManager.showToast('Install this app for a better experience!', 'info');
             }
         }, 3000);
     });
